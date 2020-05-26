@@ -1,0 +1,225 @@
+---
+title: "Spread of COVID-19"
+author: "Vimal Simha"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+##Overview
+
+By modelling the spread of COVID-19, it is shown that the common discourse about "flattening the curve" grossly understates the benefits of reducing the doubling time of the infection. It is commonly argued that "flattening the curve" would reduce the peak load while the total number of infections eventually remains the same. It is shown here that in fact, under the most natural assumptions, reducing the doubling time from 3-4 days to 10 days will result in a large fraction of the population never being infected because the rate of recovery and mortality become large enough to offset the new infection rate. 
+
+##Introduction
+
+All contagious diseases, whatever their precise nature and mode of spread, share some common characteristics. Each infected person transmits the disease to other people, who in turn transmit it to even more people. Clearly, this process is going to result in explosive growth of the infected population.
+
+Let us build a simple model to help us understand this better. If $N$ people have the disease on a given day and each person passes on the disease to $r$ others in a given day, the number of newly infected people, $\Delta$N is given by:
+$$
+\Delta N = r \times N
+$$
+
+For example, if 100 people have the disease, and each person interacts with another person to whom he or she passses on the disease, the number of cases double everyday. At this rate of growth, it takes less than a month for the whole of the world's population to be infected!
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+library(scales)
+source("covidmodels.R")
+
+n<-100 #Initial number of active cases
+e<-1 #Number of encounters
+P<-1e10 #total population
+
+N=vector()
+dN=vector()
+t=1 #time in days
+
+while (n < P)
+  {
+    dN[t] = simpexp(n,e)
+    
+    #Update Variables
+    N[t] = n+dN[t]
+    n=N[t] #Update number of active cases
+    t=t+1
+  }
+
+d <- 1:length(N)
+COVID <- data.frame(d,N,dN)
+cnames <- c("Days","N","Nnew")
+
+
+#Make Plot
+
+g <- ggplot(COVID, aes(x=d, y=N)) + geom_line()
+g <- g + scale_x_continuous(name="Number of Days", limits=c(0, length(N))) + scale_y_continuous(name="Cumulative number of  cases",trans='log10',labels=comma)
+plot(g)
+```
+
+## A Better Model
+
+Thankfully, most diseases don’t spread as rapidly as that. A doubling time of one day is too fast. For COVID-19, we have typically seen doubling times of between 3 days and 10 days.
+
+More importantly, we have left out another key mechanism that slows down the spread of the disease. Once enough people are infected, there aren’t as many uninfected people around to catch the disease. Some of the people whom our infected persons interact with already have the disease. Hence, the probability that an infected person interacts with another healthy person to whom he or she can pass on the disease is simply the proportion of healthy people in the population. In other words, the probability of each encounter leading to a fresh infection is one minus the number of people infected divided by the population.  
+
+We can therefore modify our earlier simple model as follows: 
+$$
+\Delta N = N \times r \times (1 - N/P)  
+$$
+where $P$ is the total population.
+
+With just this model, we can understand much of the dynamics of COVID-19 transmission, including commonly used terminology like “flattening the curve”.
+
+The figure below shows the "curve", which is a plot of the number of new cases each day against the number of days. For convenience, we will plot the number of days since 1 out of every million people were infected. To generate our numbers,we will assume that the total population is one billion. The qualitative nature of results will hold for any size of population, but the number of days will differ.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+library(scales)
+source("covidmodels.R")
+
+n<-1000 #Initial number of active cases
+P<-1e9 #total population
+
+N=vector()
+dN1=vector()
+dN2=vector()
+dN3=vector()
+t=1 #time in days
+
+e<- 2^(1/3)-1 #Number of encounters
+C1 <- fillimexp(n,e,P,1000)
+
+e<- 2^(1/4)-1
+C2 <- fillimexp(n,e,P,1000)
+
+e<- 2^(1/6)-1
+C3 <- fillimexp(n,e,P,1000)
+
+e<- 2^(1/10)-1
+C4 <- fillimexp(n,e,P,1000)
+
+
+#Make Plot
+
+g <- ggplot() + geom_line(data = C1, aes(x = d, y = dN/P, color = "red")) + geom_line(data = C2, aes(x = d, y = dN/P, color = "darkgreen")) + geom_line(data = C3, aes(x = d, y = dN/P, color = "brown"))+ geom_line(data = C4, aes(x = d, y = dN/P, color = "blue"))
+g <- g + scale_color_identity(name="Doubling Time",breaks=c("red", "darkgreen", "brown","blue"),labels = c("3 days","4 days","6 days","10 days"), guide="legend")
+g <- g + scale_x_continuous(name="Number of Days since 1 per million infected", limits=c(0, 300),breaks=seq(0,300,50)) + scale_y_continuous(name="New Cases per day as fraction of Population",labels=percent)
+plot(g)
+
+g <- ggplot() + geom_line(data = C1, aes(x = d, y = N/P, color = "red")) + geom_line(data = C2, aes(x = d, y = N/P, color = "darkgreen")) + geom_line(data = C3, aes(x = d, y = N/P, color = "brown"))+ geom_line(data = C4, aes(x = d, y = N/P, color = "blue"))
+g <- g + scale_color_identity(name="Doubling Time",breaks=c("red", "darkgreen", "brown","blue"),labels = c("3 days","4 days","6 days","10 days"), guide="legend")
+g <- g + scale_x_continuous(name="Number of Days since 1 per million infected", limits=c(0, 300),breaks=seq(0,300,50)) + scale_y_continuous(name="Cumulative Case Fraction",trans='log10',limits=c(1e-6,1),breaks=c(0.0001,0.01,0.1,1),labels=percent)
+plot(g)
+
+
+```
+
+In the above figures, the red, green, brown and blue curves stand for a doubling time of 3 days, 4 days, 6 days and 10 days respectively. All of these are realistic timescales that have been observed in the COVID outbreak in different countries. Recall that a doubling time of 3 days means that each infected person infects one other person every 3 days.
+
+With a short doubling time, the number of cases rises very sharply before peaking and falling, whereas it is more extended for a longer doubling time. In our model, the red curve representing a doubling time of 3 days results in over 6% of the population being infected in a day at one point. Some fraction of these people would require hospitalisation, and a smaller fraction would require ventilators. If these requirements exceed the capacity of the health system, it is likely to lead to a large number of preventible deaths. On the other hand, the blue curve representing a doubling time of 10 days never results in more than 2% of the population being infected on any given day. The blue curve is said to be "flatter", and the aim of "flattening the curve" is to reduce the doubling time sufficiently, so that the peak number of cases is at a manageable level.
+
+The second figure shows the cumulative case fraction i.e. the total fraction of the population who have got the disease. Notice that in all cases, irrespective of the doubling time, eventually the entire population gets the disease.
+
+## The Full Model
+
+While this model is better than what we started out with, it too overlooks some other factors. People do recover from COVID-19, and once recovered, they no longer infect other people. It is estimated that 80% of COVID-19 infected people will only experience mild symptoms and recover in around two weeks. In addition, some people die, and they too can no longer infect other people. This is estimated to be about 2% of those infected. In our model, we will assume that 82% of the people who have had the disease for two or more weeks are removed from the pool of infected persons. At the outset, we will assume that it is not possible for them to get reinfected. Later, we will examine the effects of relaxing this assumption i.e. allowing reinfection of recovered patients.
+
+To modify our earlier model to account for these additional effects, we will need to introduce a few more variables. $N_{\rm ACTIVE}$ is the number of people who have the disease at a given time. As outlined earlier, we track the number of people who have had the disease for over two weeks, $N_{\rm OLD}$, and eliminate a fraction, $e$, of them from the active pool, where $e$ is the fraction of people who either recover or die after having had the disease for two weeks.
+$$
+N_{ACTIVE} = N - (e \times N_{OLD}).  
+$$
+
+Secondly, we modify the equation for the number of newly infected persons by only allowing those who still have the disease to infect others: 
+$$
+\Delta N = N_{ACTIVE} \times r \times (1 - N/P)
+$$
+where $P$ is the total population as before and $N$ is the number of people who were ever infected. 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+library(scales)
+source("covidmodels.R")
+
+n<-100 #Initial number of active cases
+P<-1e9 #total population
+el<-0.82 #Elimination rate fraction of people with the disease for 2 or more weeks that are either recovered or dead
+
+N=vector()
+dN1=vector()
+dN2=vector()
+dN3=vector()
+t=1 #time in days
+
+e<- 2^(1/3)-1 #Number of encounters
+C1 <- fillfullmod(n,e,P,1000,el)
+
+e<- 2^(1/4)-1
+C2 <- fillfullmod(n,e,P,1000,el)
+
+e<- 2^(1/6)-1
+C3 <- fillfullmod(n,e,P,1000,el)
+
+e<- 2^(1/10)-1
+C4 <- fillfullmod(n,e,P,10000,el)
+
+
+#Make Plot
+
+g <- ggplot() + geom_line(data = C1, aes(x = d, y = dN/P, color = "red")) + geom_line(data = C2, aes(x = d, y = dN/P, color = "darkgreen")) + geom_line(data = C3, aes(x = d, y = dN/P, color = "brown")) + geom_line(data = C4, aes(x = d, y = dN/P, color = "blue"))
+g <- g + scale_color_identity(name="Doubling Time",breaks=c("red", "darkgreen", "brown","blue"),labels = c("3 days","4 days","6 days","10 days"), guide="legend")
+g <- g + scale_x_continuous(name="Number of Days since 1 per million infected", limits=c(0, 300),breaks=seq(0,300,50)) + scale_y_continuous(name="New Cases per day as fraction of population",labels=percent)
+plot(g)
+```
+
+The above figure is the "curve", which is a plot of the number of new cases each day against the number of days. Compared to the earlier set of curves, the red curve, showing a doubling time of 3 days is largely unchanged. The doubling period is too fast for the recovery rate to make much of a dent. On the other hand, notice that the brown curve, showing a doubling period of 6 days. It has a peak infection rate of 1.5% of the population per day, 4 times lower than the peak for the red curve, and half of the peak we saw in the earlier set of curves for the same doubling period when we did not consider recovery and mortality. Strikingly the blue curve showing a doubling time of 10 days is too low to be captured in the figure. We need a separate figure with modified axes to show what happens in that case! 
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+g <- ggplot() + geom_line(data = C4, aes(x = d, y = dN/P*1e6, color = "blue"))+scale_color_manual(name="Doubling Time",labels = c("10 days"), values = c("blue"))
+g <- g + scale_x_continuous(name="Number of Days since 1 per million infected", limits=c(0, 6000),breaks=seq(0,6000,500)) + scale_y_continuous(name="New Cases per day per million people",labels=comma)
+plot(g)
+```
+
+No more than 30 people per million will be infected on any given day! In reality, the burden will be even smaller because it is drawn out over 10 years when we would expect mortality from all other causes to play a significant role.
+
+Once again, we could also look at what fraction of the population get the disease.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+g <- ggplot() + geom_line(data = C1, aes(x = d, y = N/P, color = "red")) + geom_line(data = C2, aes(x = d, y = N/P, color = "darkgreen")) + geom_line(data = C3, aes(x = d, y = N/P, color = "brown")) + geom_line(data = C4, aes(x = d, y = N/P, color = "blue"))
+g <- g + scale_color_identity(name="Doubling Time",breaks=c("red", "darkgreen", "brown","blue"),labels = c("3 days","4 days","6 days","10 days"), guide="legend")
+g <- g + scale_x_continuous(name="Number of Days since 1 per million infected",limits=c(0, 300),breaks=seq(0,300,50)) + scale_y_continuous(name="Cumulative Case Fraction",labels=percent)
+plot(g)
+```
+
+Once we account for recoveries and mortality, not everyone gets the disease. As the doubling time goes down, fewer people ever get the disease. For a doubling time of 10 days, once again, we need another figure which shows that no more than 4% of the population ever get the disease.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+g <- ggplot() + geom_line(data = C4, aes(x = d, y = N/P, color = "blue"))+scale_color_manual(name="Doubling Time",labels = c("10 days"), values = c("blue"))
+g <- g + scale_x_continuous(name="Number of Days since 1 per million infected", limits=c(0, 6000),breaks=seq(0,6000,500)) + scale_y_continuous(name="Cumulative Case Fraction",labels=percent)
+plot(g)
+```
+
+
+Finally, we can look at the number of active cases at any given time as a function of time, excluding those who have recovered or died. This is likely to be the most relevant metric for demands on hospital beds and ventilators.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+g <- ggplot() + geom_line(data = C1, aes(x = d, y = NACT/P, color = "red")) + geom_line(data = C2, aes(x = d, y = NACT/P, color = "darkgreen")) + geom_line(data = C3, aes(x = d, y = NACT/P, color = "brown"))+geom_line(data = C4, aes(x = d, y = NACT/P, color = "blue"))
+g <- g + scale_color_identity(name="Doubling Time",breaks=c("red", "darkgreen", "brown","blue"),labels = c("3 days","4 days","6 days","10 days"), guide="legend")
+g <- g + scale_x_continuous(name="Number of Days since 1 per million infected",limits=c(0, 300),breaks=seq(0,300,50)) + scale_y_continuous(name="Active Cases as fraction of population",labels=percent)
+plot(g)
+#trans='log10',limits=c(1e-6,1),breaks=c(0.0001,0.01,0.1,1)
+
+```
+
+Needless to say, the blue curve showing a doubling time of 10 days requires another figure.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+g <- ggplot() + geom_line(data = C4, aes(x = d, y = NACT/P, color = "blue"))+scale_color_manual(name="Doubling Time",labels = c("10 days"), values = c("blue"))
+g <- g + scale_x_continuous(name="Number of Days since 1 per million infected", limits=c(0, 6000),breaks=seq(0,6000,500)) + scale_y_continuous(name="Active Cases as fraction of population",labels=percent)
+plot(g)
+```
+
+## Summary
+
+Reducing the doubling time of the infected population by restricting the number of people that each infected person can interact with can reduce not only the peak demand on medical services, but also the number of people who eventually get the disease. For substantial reductions in the number of interactions, and therefore new infections, the benefits are far greater than is captured in the commonly used "flattening the curve" metaphor.
+

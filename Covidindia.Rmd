@@ -1,0 +1,195 @@
+---
+title: "Analysing Covid Data From India"
+author: "Vimal Simha"
+output:
+  pdf_document: default
+  html_document: default
+---
+##Overview
+
+I examine some basic aspects of the Covid Data from India. My data are sourced from https://www.covid19india.org. 
+
+## Exploratory Analysis
+
+The figure shows the cumulative number of cases against date, starting from the day when there were 100 cases. It is the starting point of any analysis. It shows the number of cases rising roughly exponentially so far.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+source("covidmodels.R")
+source("readdatacovid.R")
+
+data <- readtrackerdata(100)
+
+dcases <- as.numeric(data$totalconfirmed)
+dates <- as.Date(as.POSIXct(data$date,format="%d %B"))
+
+ind <- 1:length(dcases)
+errs <- dcases^0.5
+
+fit <- lm(log(dcases) ~ ind, weights=1/errs^2)
+iframe <- data.frame(ind)
+p <- predict(fit,iframe)
+
+df <- data.frame(dates,dcases,p,errs)
+
+
+#Make Plot
+
+g <- ggplot(df, aes(x=dates, y=dcases)) + geom_point() 
+#+ geom_errorbar(aes(ymin=dcases-errs, ymax=dcases+errs),width=0.2)
+#g <- g + geom_line(data = df, aes(x=dates, y=exp(p)))
+g <- g + labs(x="Date",y="Cumulative Number of Cases")
+plot(g)
+```
+
+A key parameter of interest is the doubling period i.e. how many days does it take for the number of cases to double? There are a few equivalent ways of doing that. One is to fit an exponential curve to the figure above. To help visualise this better, the number of cases is plotted on a log axis which makes our exponential curve look like a straight line with its slope giving the reproduction rate (see appendix for details). The best-fit exponential curve is shown in the figure below and yields a doubling time of 4.1 days. 
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+source("covidmodels.R")
+source("readdatacovid.R")
+
+data <- readtrackerdata(100)
+
+dcases <- as.numeric(data$totalconfirmed)
+dates <- as.Date(as.POSIXct(data$date,format="%d %B"))
+
+ind <- 1:length(dcases)
+errs <- dcases^0.5
+
+fit <- lm(log(dcases) ~ ind, weights=1/errs^2)
+iframe <- data.frame(ind)
+p <- predict(fit,iframe)
+
+df <- data.frame(dates,dcases,p,errs)
+
+
+#Make Plot
+
+g <- ggplot(df, aes(x=dates, y=dcases)) + geom_point() + geom_errorbar(aes(ymin=dcases-errs, ymax=dcases+errs),width=0.2)
+g <- g + geom_line(data = df, aes(x=dates, y=exp(p)))
+g <- g + scale_y_continuous(trans='log10')
+g <- g + labs(x="Date",y="Cumulative Number of Cases")
+plot(g)
+```
+
+
+The figure below shows a plot of the number of new cases on a given day against the total number of cases on that day. It is roughly proportional, but with a lot of scatter.
+
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+source("covidmodels.R")
+source("readdatacovid.R")
+
+data <- readtrackerdata(100)
+
+dcases <- as.numeric(data$totalconfirmed)
+ncases <- as.numeric(data$dailyconfirmed)
+
+ind <- 1:length(dcases)
+errs = ncases^0.5
+
+fit <- lm(ncases ~ dcases, weights=1/errs^2)
+iframe <- data.frame(dcases)
+p <- predict(fit,iframe)
+
+df <- data.frame(ncases,dcases,p)
+
+
+#Make Plot
+
+g <- ggplot(df, aes(x=dcases, y=ncases)) + geom_point() 
+#+ geom_errorbar(aes(ymin=ncases-errs, ymax=ncases+errs),width=2)
+#g <- g + geom_line(data = df, aes(x=dcases, y=p))
+g <- g + labs(x="Cumulative Number of Cases",y="New Cases")
+plot(g)
+```
+
+We are also interested in how many people are dying, and how fast that is increasing. This is useful to know for its own sake, but besides that, it is also of interest because we might consider the data on deaths to be more accurate than the data on the number of cases. We plot the number of deaths against time starting from the time when we had at least 50 deaths. The data are well fit by an exponential with a doubling time of 4.4 days.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+source("covidmodels.R")
+source("readdatacovid.R")
+
+data <- readtrackerdata(1500)
+
+ddeaths <- as.numeric(data$totaldeceased)
+dates <- as.Date(as.POSIXct(data$date,format="%d %B"))
+
+ind <- 1:length(ddeaths)
+errs <- ddeaths^0.5
+
+fit <- lm(log(ddeaths) ~ ind, weights=1/errs^2)
+iframe <- data.frame(ind)
+p <- predict(fit,iframe)
+
+df <- data.frame(dates,ddeaths,p,errs)
+
+
+#Make Plot
+
+g <- ggplot(df, aes(x=dates, y=ddeaths)) + geom_point() + geom_errorbar(aes(ymin=ddeaths-errs, ymax=ddeaths+errs),width=0.2)
+g <- g + geom_line(data = df, aes(x=dates, y=exp(p)))
+g <- g + labs(x="Date",y="Cumulative Number of Deaths")
+plot(g)
+```
+
+
+Another question of interest is whether the slope is changing i.e. is there evidence to suggest that the doubling rate is slowing down or speeding up? The figure below shows the daily growth rate over the last 3 day period i.e. we compute the number of new cases during the last 3 days and calculate the daily growth rate of the infected population that it implies.  
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+source("covidmodels.R")
+source("readdatacovid.R")
+
+data <- readtrackerdata(100)
+
+dcases <- as.numeric(data$totalconfirmed)
+dates <- as.Date(as.POSIXct(data$date,format="%d %B"))
+grates <- grater(dcases,3)
+indx <-min(which(grates>0))
+
+dates <- dates[indx:length(dates)]
+grates <- grates[indx:length(grates)]
+
+df <- data.frame(dates,grates)
+
+
+#Make Plot
+
+g <- ggplot(df, aes(x=dates, y=grates-1)) + geom_point() 
+g <- g + geom_line(data = df, aes(x=dates, y=grates-1))
+g <- g + scale_y_continuous(labels = scales::percent)
+g <- g + labs(x="Date",y="Daily Growth Rate of infected population over previous 3 Days")
+plot(g)
+```
+
+The growth rate jumps around quite a bit, but there is no evidence of a transition from a high growth to a low growth regime or vice-versa. There is no reason to suppose that the growth rate of the infected population, or in other word the doubling rate, is changing. 
+
+
+##Appendix: Computation of Doubling Rate from Reproduction Rate
+
+Recall that, in the simplest models and during the initial stages in more complex models, the number of new cases $\Delta N$ is given by the reproduction rate, $r$ multiplied by the Number of cases, $N$, 
+$$
+\Delta N = r N
+$$
+and therefore the number of cases after t time periods, $N$ is
+$$
+N = N_0 (1+r)^t
+$$
+where $N_0$ is the initial number of cases.
+
+If we take the logarithm of both sides
+$$
+log(N) = log(N_0) + t log(1+r).
+$$
+The slope of the plot of $log(N)$ vs $t$ is $log(1+r)$, and the doubling period $d$ is given by:
+$$
+d = log(2)/log(1+r).
+$$
+Notice that these are the same formulae used in carbon dating, compound interest and many other things.
+
+

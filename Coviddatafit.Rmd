@@ -1,0 +1,16 @@
+---
+title: "Covid-DataFit"
+author: "Vimal Simha"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+We fit our model to three sets of data, namely:  
+1. Number of cases each day  
+2. Number of deaths each day  
+3. Number of persons cured each day  
+
+#Mortality Rate
+
+The number of deaths cannot be compared to the present number of cases to derive a mortality rate as people do not drop dead immediately after being infected. Instead, predicting the eventual number of deaths requires us to examine 

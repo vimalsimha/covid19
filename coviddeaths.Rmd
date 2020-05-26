@@ -1,0 +1,87 @@
+---
+title: "Why Covid Deaths In India Can Be Much Higher Without Being Noticed"
+author: "Vimal Simha"
+date: "4/18/2020"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+##Summary
+
+India's low rate of covid-19 testing relative to population is well known and has been extensively analysed. Nevertheless, it is often claimed that the number of positive cases cannot be subsantially higher than the published numbers because it would be reflected in a higher death rate. The notion is that a higher death rate would be apparent because it is difficult to hide bodies. It is argued below that a death rate of substantially over 5,000 per day would be required to be noticeable as an anamoly.
+
+## Deaths From Covid-19 And Other Causes
+
+Over 20% of deaths in India are [unregistered](https://www.ncbi.nlm.nih.gov/pubmed/31496526) in India, and the cause of death is not routinely documented. A [medically certified cause](http://www9.who.int/bulletin/volumes/94/1/15-153585/en/) was provided for only one-sixth of recorded cases with many listing "vague or ambigious" causes. Despite these shortcomings, it could be argued that the sheer number of deaths from a pandemic would be noticed as an unusual pile up of corpses, epsecially as there is near universal awareness of the existence of a global pandemic.
+
+The crude death rate in India is estimated at [7.3 per 1000](https://www.cia.gov/library/publications/the-world-factbook/geos/in.html). With a population of 1.35 billion, that amounts to 9.9 million deaths per year. As there are 720 districts, in each district, there is an average of 37.5 deaths per day.    
+
+We know the mean rate of death per day per district. But clearly, it is not the case that exactly the same number of people die every single day. There are seasonal variations to begin with. But even after correcting for seasonal variations, there are random fluctuations from day to day. On some days, more people die and on some other days, fewer. The distribution of deaths follows a Poisson distribution.
+
+We can simulate what a typical month will look like by generating samples from a Poisson distribution. The figure below shows the number of deaths each day during a typical month.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+library(scales)
+
+D <- data.frame(Deaths=rpois(30,37.5),Day=1:30)
+
+#Make Plot
+
+g <- ggplot() + geom_col(data=D,aes(x=Day,y=Deaths))
+plot(g)
+
+```
+
+What happens if we add an extra 1,000 deaths per day nationally due to covid-19? What would be observed in a typical district? In the figure below, each point shows the number of observed deaths. The shaded region shows the 95% confidence region during normal times when there are no extra deaths due to covid-19. In other words, it shows the range within which you would expect the number of deaths to lie on 95% of the days if the death rate is what it normally is.
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+library(scales)
+set.seed(12)
+
+D <- data.frame(Deaths=rpois(30,37.5),Day=1:30)
+DN <- data.frame(Deaths=rpois(30,(37.5+1.39)),Day=1:30)
+meand <- 37.5
+ymin <- meand-1.96*sqrt(meand)
+ymax <- meand+1.96*sqrt(meand)
+
+#Make Plot
+
+g <- ggplot() + geom_point(data=DN,aes(x=Day,y=Deaths))
+g <- g + geom_ribbon(data=D, aes(x=Day, ymin = ymin, ymax = ymax,alpha=0.8),show.legend = FALSE)
+plot(g)
+```
+
+Notice that on nearly all days, the observed number of deaths are consistent with what you would observe if there was no change in the death rate. On only 2 out of 30 days i.e. 6.7% of the time, the number of deaths observed is outside the 95% confidence region.
+
+In the last five days, an average of 31 deaths per day have been reported due to covid-19. So, even if the mortality due to covid-19 were 30 times higher, it would be barely noticeable. Note that 1,000 deaths per day would correspond to 50,000 new cases per day at a mortality rate of 2%.
+
+If you instead add 5,000 extra deaths a day due to covid, here is what you would observe in a typical district:
+
+```{r echo=FALSE, warning=FALSE, message=FALSE, quietly=TRUE}
+library(ggplot2)
+library(scales)
+set.seed(12)
+
+D <- data.frame(Deaths=rpois(30,37.5),Day=1:30)
+DN <- data.frame(Deaths=rpois(30,(37.5+(5000/720))),Day=1:30)
+meand <- 37.5
+ymin <- meand-1.96*sqrt(meand)
+ymax <- meand+1.96*sqrt(meand)
+
+#Make Plot
+
+g <- ggplot() + geom_point(data=DN,aes(x=Day,y=Deaths))
+g <- g + geom_ribbon(data=D, aes(x=Day, ymin = ymin, ymax = ymax,alpha=0.8),show.legend = FALSE)
+plot(g)
+```
+
+At this point, you begin to see a difference. There are six points above the 95% confidence region i.e. once every five days, you would see many more deaths than you would normally see. Additionally, on most days, the number of deaths is at the higher end of the normal range. Nevertheless, interpreting this too requires some analysis. This scenario too would not necessarily result in corpses piling up. 
+
+At a mortality rate of 2%, 5000 deaths a day would correspond to 250,000 cases per day. This is the minimum threshold above which the claimed accumulation of bodies would be noticed as anamolous. Death rates lower than this would not appear anamolous at the local level.
+
+However, when statistics of deaths are aggregated at the national level and analysed, it would be possible to pick up changes in death rates of as low as 165 per day. An accurate estimate of the toll of covid-19 can only be obtained by examining the numbers of excess deaths compared to previous years. Even in the presence of extensive testing, such collation has lead to an upward revision of 50% in the [number of deaths reported in Wuhan](https://www.globaltimes.cn/content/1185900.shtml). In Iran, a [parliamentary report](https://www.cbc.ca/news/world/iran-report-coronavirus-1.5532787) found that nearly half of all covid-19 related deaths were being attributed to cardiac arrest and flu by local doctors in the absence of adequate testing.
+
+
